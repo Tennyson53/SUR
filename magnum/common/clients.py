@@ -14,6 +14,7 @@
 
 from glanceclient.v2 import client as glanceclient
 from heatclient.v1 import client as heatclient
+from magnum.sur import client as senlinclient
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -82,6 +83,7 @@ class OpenStackClients(object):
         self._keystone = None
         self._heat = None
         self._glance = None
+        self._senlin = None
 
     def url_for(self, **kwargs):
         return self.keystone().client.service_catalog.url_for(**kwargs)
@@ -157,3 +159,11 @@ class OpenStackClients(object):
         self._glance = glanceclient.Client(**args)
 
         return self._glance
+
+    def senlin(self):
+        if self._senlin:
+            return self._senlin
+
+        self._senlin = senlinclient.SenlinSURClient.setup_client(**args)
+
+        return self._senlin
