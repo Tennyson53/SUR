@@ -88,10 +88,10 @@ class Bay(base.APIBase):
     """A list containing a self link and associated bay links"""
 
     status = wtypes.text
-    """Status of the bay from the heat stack"""
+    """Status of the bay from the heat stack or senlin cluster"""
 
     status_reason = wtypes.text
-    """Status reason of the bay from the heat stack"""
+    """Status reason of the bay from the heat stack or senlin cluster"""
 
     discovery_url = wtypes.text
     """Url used for bay node discovery"""
