@@ -5,7 +5,7 @@ Created on Aug 9, 2015
 
 import json
 
-from sur.common import utils
+from magnum.sur.common import utils
 
 
 class Profile(object):

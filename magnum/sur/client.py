@@ -3,9 +3,9 @@ Created on Aug 8, 2015
 
 '''
 
-from sur.common import utils
-from sur.common import exception
-from sur.common import client as sur_client
+from magnum.sur.common import utils
+from magnum.sur.common import exception
+from magnum.sur.common import client as sur_client
 
 import keystoneclient.v3.client as ksclient
 

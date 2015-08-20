@@ -22,7 +22,7 @@ def create_cluster(OSC):
 
     # Create Profile
     pr = Profile.profile_create(sc, 'SUR_Profile', 'os.nova.server',
-                                '/opt/stack/magnum/sur/SURspec/SUR.spec',
+                                '/opt/stack/magnum/magnum/sur/SURspec/SUR.spec',
                                 '1111')
     time.sleep(1)
     LOG.info(pr)

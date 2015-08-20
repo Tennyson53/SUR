@@ -1,7 +1,7 @@
 import os
 import yaml
 
-from sur.common import exception
+from magnum.sur.common import exception
 
 
 def get_env(env_name, default=''):
