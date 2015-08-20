@@ -29,6 +29,7 @@ from magnum.i18n import _LE
 from magnum.i18n import _LI
 from magnum import objects
 from magnum.objects.bay import Status as bay_status
+from magnum.sur import cluster_function as cfunction
 
 
 bay_heat_opts = [
@@ -127,14 +128,17 @@ class Handler(object):
         osc = clients.OpenStackClients(context)
 
         try:
-            created_stack = _create_stack(context, osc, bay,
-                                          bay_create_timeout)
+            #created_stack = _create_stack(context, osc, bay,
+            #                              bay_create_timeout)
+            cfunction.create_cluster(osc)
+
         except exc.HTTPBadRequest as e:
             raise exception.InvalidParameterValue(message=str(e))
         except Exception:
             raise
 
-        bay.stack_id = created_stack['stack']['id']
+        #bay.stack_id = created_stack['stack']['id']
+        bay.stack_id = 'k8s_cluster'
         bay.create()
 
         self._poll_and_check(osc, bay)
