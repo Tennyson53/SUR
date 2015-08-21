@@ -141,7 +141,7 @@ class Handler(object):
         bay.stack_id = 'k8s_cluster'
         bay.create()
 
-        self._poll_and_check(osc, bay)
+        #self._poll_and_check(osc, bay)
 
         return bay
 

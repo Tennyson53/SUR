@@ -14,7 +14,7 @@
 
 from glanceclient.v2 import client as glanceclient
 from heatclient.v1 import client as heatclient
-from magnum.sur import client as senlinclient
+from magnum.sur.client import SenlinSURClient as senlinclient
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -164,6 +164,6 @@ class OpenStackClients(object):
         if self._senlin:
             return self._senlin
 
-        self._senlin = senlinclient.SenlinSURClient.setup_client()
+        self._senlin = senlinclient().setup_client()
 
         return self._senlin
