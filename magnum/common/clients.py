@@ -164,6 +164,6 @@ class OpenStackClients(object):
         if self._senlin:
             return self._senlin
 
-        self._senlin = senlinclient.SenlinSURClient.setup_client(**args)
+        self._senlin = senlinclient.SenlinSURClient.setup_client()
 
         return self._senlin
