@@ -1,0 +1,14 @@
+coreos:
+  etcd2:
+    discovery: https://discovery.etcd.io/b705deec97c41a4a2bcd4cbbdfdef67a
+    advertise-client-urls: http://$private_ipv4:2379,http://$private_ipv4:4001
+    initial-advertise-peer-urls: http://$private_ipv4:2380
+    listen-client-urls: http://0.0.0.0:2379,http://0.0.0.0:4001
+    listen-peer-urls: http://$private_ipv4:2380
+  units:
+    - name: etcd2.service
+      command: start
+    - name: fleet.service
+      command: start
+ssh_authorized_keys:
+  - ssh_rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCY6AE8ZAOaN5ODqDRolwsLNw2OG3569A7zNh2P8dlSZAVYEJxoCMKYcgBI15xHBPdRX7zsiEJPiwnOqH1NP0pAcb/tuFXcSABjwb6YryM/Ase2K6hLq/I4Wgtu9BUiWlBAuQBgc/g93PKJ0MWS0p8BO0asoJQIS71af5U4MiTiTtK2Cx3ZdMbFauPY3DseMFpRRheWPyI4XD9USwpqDiB2dYdjy33Yg5WJyVfZ+Du59/kWBih1doUk2UrRhrAv9hm6pvZmzR23VW1MruqC9KwurkRvXRLZQFH1t8dkeB5R5s83cZ3VZE1YityBkDgmv8lNHtNStD3e2v4KwG4elhRT ibm@ip9-114-192-95.pok.stglabs.ibm.com
