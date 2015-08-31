@@ -12,7 +12,7 @@ write_files:
       nameserver 8.8.4.4
       nameserver 8.8.8.8
 hostname: master
-coreos:
+fedora:
   etcd:
     name: master
     addr: 192.168.101.10:4001
