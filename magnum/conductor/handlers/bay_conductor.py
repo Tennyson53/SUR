@@ -29,7 +29,7 @@ from magnum.i18n import _
 from magnum.i18n import _LE
 from magnum.i18n import _LI
 from magnum import objects
-from magnum.objects.bay import Status as bay_status
+from magnum.objects.fields import BayStatus as bay_status
 from magnum.sur import cluster_function as cfunction
 
 
@@ -132,17 +132,9 @@ class Handler(object):
         osc = clients.OpenStackClients(context)
 
         try:
-<<<<<<< HEAD
-            # Generate certificate and set the cert reference to bay
-            cert_manager.generate_certificates_to_bay(bay)
-            created_stack = _create_stack(context, osc, bay,
-                                          bay_create_timeout)
-=======
             #created_stack = _create_stack(context, osc, bay,
             #                              bay_create_timeout)
             cfunction.create_cluster(osc)
-
->>>>>>> 2e98dd1adb92c606c3f21e2159fe52dda5fde1fb
         except exc.HTTPBadRequest as e:
             raise exception.InvalidParameterValue(message=str(e))
         except Exception:
