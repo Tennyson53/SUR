@@ -21,6 +21,7 @@ from oslo_service import loopingcall
 from magnum.common import clients
 from magnum.common import exception
 from magnum.common import short_id
+from magnum.conductor.handlers.common import cert_manager
 from magnum.conductor import scale_manager
 from magnum.conductor.template_definition import TemplateDefinition as TDef
 from magnum.conductor import utils as conductor_utils
@@ -28,7 +29,7 @@ from magnum.i18n import _
 from magnum.i18n import _LE
 from magnum.i18n import _LI
 from magnum import objects
-from magnum.objects.bay import Status as bay_status
+from magnum.objects.fields import BayStatus as bay_status
 from magnum.sur import cluster_function as cfunction
 
 
@@ -107,16 +108,10 @@ def _update_stack(context, osc, bay, scale_manager=None):
     return osc.heat().stacks.update(bay.stack_id, **fields)
 
 
-def _update_stack_outputs(context, stack, bay):
-    baymodel = conductor_utils.retrieve_baymodel(context, bay)
-    cluster_distro = baymodel.cluster_distro
-    cluster_coe = baymodel.coe
-    definition = TDef.get_template_definition('vm', cluster_distro,
-                                              cluster_coe)
-    return definition.update_outputs(stack, bay)
-
-
 class Handler(object):
+
+    _update_allowed_properties = set(['node_count'])
+
     def __init__(self):
         super(Handler, self).__init__()
 
@@ -131,7 +126,6 @@ class Handler(object):
             #created_stack = _create_stack(context, osc, bay,
             #                              bay_create_timeout)
             cfunction.create_cluster(osc)
-
         except exc.HTTPBadRequest as e:
             raise exception.InvalidParameterValue(message=str(e))
         except Exception:
@@ -145,6 +139,13 @@ class Handler(object):
 
         return bay
 
+    def _validate_properties(self, delta):
+        update_disallowed_properties = delta - self._update_allowed_properties
+        if update_disallowed_properties:
+            err = (_("cannot change bay property(ies) %s.") %
+                   ", ".join(update_disallowed_properties))
+            raise exception.InvalidParameterValue(err=err)
+
     def bay_update(self, context, bay):
         LOG.debug('bay_heat bay_update')
 
@@ -156,19 +157,17 @@ class Handler(object):
                           '"%s"') % stack.stack_status
             raise exception.NotSupported(operation=operation)
 
-        delta = set(bay.obj_what_changed())
-        if 'node_count' in delta:
-            delta.remove('node_count')
-            manager = scale_manager.ScaleManager(context, osc, bay)
+        delta = bay.obj_what_changed()
+        if not delta:
+            return bay
 
-            _update_stack(context, osc, bay, manager)
-            self._poll_and_check(osc, bay)
+        self._validate_properties(delta)
 
-        if delta:
-            raise exception.InvalidParameterValue(err=(
-                "cannot change bay property(ies) %s." % ", ".join(delta)))
+        manager = scale_manager.ScaleManager(context, osc, bay)
 
-        bay.save()
+        _update_stack(context, osc, bay, manager)
+        self._poll_and_check(osc, bay)
+
         return bay
 
     def bay_delete(self, context, uuid):
@@ -213,6 +212,9 @@ class HeatPoller(object):
         self.context = self.openstack_client.context
         self.bay = bay
         self.attempts = 0
+        baymodel = conductor_utils.retrieve_baymodel(self.context, bay)
+        self.template_def = TDef.get_template_definition(
+            'vm', baymodel.cluster_distro, baymodel.coe)
 
     def poll_and_check(self):
         # TODO(yuanying): temporary implementation to update api_address,
@@ -232,15 +234,21 @@ class HeatPoller(object):
             raise loopingcall.LoopingCallDone()
         if (stack.stack_status in [bay_status.CREATE_COMPLETE,
                                    bay_status.UPDATE_COMPLETE]):
-            _update_stack_outputs(self.context, stack, self.bay)
+            self.template_def.update_outputs(stack, self.bay)
 
             self.bay.status = stack.stack_status
             self.bay.status_reason = stack.stack_status_reason
+            stack_nc_param = self.template_def.get_heat_param(
+                bay_attr='node_count')
+            self.bay.node_count = stack.parameters[stack_nc_param]
             self.bay.save()
             raise loopingcall.LoopingCallDone()
         elif stack.stack_status != self.bay.status:
             self.bay.status = stack.stack_status
             self.bay.status_reason = stack.stack_status_reason
+            stack_nc_param = self.template_def.get_heat_param(
+                bay_attr='node_count')
+            self.bay.node_count = stack.parameters[stack_nc_param]
             self.bay.save()
         if stack.stack_status == bay_status.CREATE_FAILED:
             LOG.error(_LE('Unable to create bay, stack_id: %(stack_id)s, '

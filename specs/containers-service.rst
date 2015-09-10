@@ -83,7 +83,7 @@ Use cases
    multiple hosting environments). End-users want a single service that could
    help them build the container network, and dynamically modify the network
    topology by adding or removing containers to or from the network.
-9. Permit secure use of native ReST APIs. Provide two models of operation with
+9. Permit secure use of native REST APIs. Provide two models of operation with
    Magnum.  The first model allows Magnum to manage the lifecycle of Pods,
    ReplicationControllers, and Services.  The second model allows end-users to
    manage the lifecycle of Pods, ReplicationControllers, and Services by
@@ -238,8 +238,8 @@ REST API impact
 ---------------
 For Nova, none. All new API calls will be implemented in the Containers
 Service. The OpenStack Containers Service API will be a superset of
-functionality offered by the The `Docker API:
-<https://docs.docker.com/reference/api/docker_remote_api_v1.13/>`_
+functionality offered by the, The `Docker Remote API:
+<https://docs.docker.com/reference/api/docker_remote_api/>`_
 with additionals to make is suitable for general use regardless of the backend
 container technology used, and to be compatible with OpenStack multi-tenancy
 and Keystone authentication.

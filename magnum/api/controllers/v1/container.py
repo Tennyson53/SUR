@@ -32,6 +32,7 @@ from magnum.common import exception
 from magnum.common import policy
 from magnum.i18n import _LE
 from magnum import objects
+from magnum.objects import fields
 
 LOG = logging.getLogger(__name__)
 
@@ -291,7 +292,7 @@ class ContainersController(rest.RestController):
                 LOG.exception(_LE("Error while list container %(uuid)s: "
                                   "%(e)s."),
                               {'uuid': c.uuid, 'e': e})
-                containers[i].status = 'Unknown'
+                containers[i].status = fields.ContainerStatus.UNKNOWN
 
         return ContainerCollection.convert_with_links(containers, limit,
                                                       url=resource_url,
@@ -360,9 +361,8 @@ class ContainersController(rest.RestController):
         """
         container_dict = container.as_dict()
         context = pecan.request.context
-        auth_token = context.auth_token_info['token']
-        container_dict['project_id'] = auth_token['project']['id']
-        container_dict['user_id'] = auth_token['user']['id']
+        container_dict['project_id'] = context.project_id
+        container_dict['user_id'] = context.user_id
         new_container = objects.Container(context, **container_dict)
         new_container.create()
         res_container = pecan.request.rpcapi.container_create(new_container)

@@ -19,7 +19,6 @@ SQLAlchemy models for container service
 import json
 
 from oslo_config import cfg
-from oslo_db import options as db_options
 from oslo_db.sqlalchemy import models
 import six.moves.urllib.parse as urlparse
 from sqlalchemy import Column
@@ -29,21 +28,6 @@ from sqlalchemy import schema
 from sqlalchemy import String
 from sqlalchemy import Text
 from sqlalchemy.types import TypeDecorator, TEXT
-
-from magnum.common import paths
-
-
-sql_opts = [
-    cfg.StrOpt('mysql_engine',
-               default='InnoDB',
-               help='MySQL engine to use.')
-]
-
-_DEFAULT_SQL_CONNECTION = 'sqlite:///' + paths.state_path_def('magnum.sqlite')
-
-
-cfg.CONF.register_opts(sql_opts, 'database')
-db_options.set_defaults(cfg.CONF, _DEFAULT_SQL_CONNECTION, 'magnum.sqlite')
 
 
 def table_args():
@@ -132,6 +116,15 @@ class Bay(Base):
     status = Column(String(20))
     status_reason = Column(Text)
     discovery_url = Column(String(255))
+    master_addresses = Column(JSONEncodedList)
+    # (yuanying) if we use barbican,
+    # cert_ref size is determined by below format
+    # * http(s)://${DOMAIN_NAME}/v1/containers/${UUID}
+    # as a result, cert_ref length is estimated to 312 chars.
+    # but we can use another backend to store certs.
+    # so, we use 512 chars to get some buffer.
+    ca_cert_ref = Column(String(512))
+    magnum_cert_ref = Column(String(512))
 
 
 class BayLock(Base):
@@ -172,6 +165,9 @@ class BayModel(Base):
     ssh_authorized_key = Column(Text)
     cluster_distro = Column(String(255))
     coe = Column(String(255))
+    http_proxy = Column(String(255))
+    https_proxy = Column(String(255))
+    no_proxy = Column(String(255))
 
 
 class Container(Base):

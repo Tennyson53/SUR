@@ -17,7 +17,6 @@ from oslo_config import cfg
 from oslo_policy import policy
 from oslo_utils import timeutils
 from six.moves.urllib import parse as urlparse
-from wsme import types as wtypes
 
 from magnum.api.controllers.v1 import bay as api_bay
 from magnum.common import utils
@@ -34,8 +33,12 @@ class TestBayObject(base.TestCase):
     def test_bay_init(self):
         bay_dict = apiutils.bay_post_data(baymodel_id=None)
         del bay_dict['node_count']
+        del bay_dict['master_count']
+        del bay_dict['bay_create_timeout']
         bay = api_bay.Bay(**bay_dict)
-        self.assertEqual(wtypes.Unset, bay.node_count)
+        self.assertEqual(bay.node_count, 1)
+        self.assertEqual(bay.master_count, 1)
+        self.assertEqual(bay.bay_create_timeout, 0)
 
 
 class TestListBay(api_base.FunctionalTest):
@@ -432,6 +435,18 @@ class TestPost(api_base.FunctionalTest):
         return_created_at = timeutils.parse_isotime(
             response.json['created_at']).replace(tzinfo=None)
         self.assertEqual(test_time, return_created_at)
+
+    def test_create_bay_set_project_id_and_user_id(self):
+        bdict = apiutils.bay_post_data()
+
+        def _simulate_rpc_bay_create(bay, bay_create_timeout):
+            self.assertEqual(bay.project_id, self.context.project_id)
+            self.assertEqual(bay.user_id, self.context.user_id)
+            bay.create()
+            return bay
+        self.mock_bay_create.side_effect = _simulate_rpc_bay_create
+
+        self.post_json('/bays', bdict)
 
     def test_create_bay_doesnt_contain_id(self):
         with mock.patch.object(self.dbapi, 'create_bay',

@@ -35,6 +35,12 @@
 # (integer value)
 #periodic_interval_max = 60
 
+# Name of this node.  This can be an opaque identifier. It is not
+# necessarily a hostname, FQDN, or IP address. However, the node name
+# must be valid within an AMQP key, and if using ZeroMQ, a valid
+# hostname, FQDN, or IP address. (string value)
+#host = localhost
+
 #
 # From oslo.log
 #
@@ -43,9 +49,11 @@
 # default WARNING level). (boolean value)
 #debug = false
 
-# Print more verbose output (set logging level to INFO instead of
-# default WARNING level). (boolean value)
-#verbose = false
+# If set to false, will disable INFO logging level, making WARNING the
+# default. (boolean value)
+# This option is deprecated for removal.
+# Its value may be silently ignored in the future.
+#verbose = true
 
 # The name of a logging configuration file. This file is appended to
 # any existing logging configuration files. For details about logging
@@ -227,6 +235,8 @@
 #
 
 # The port for the Magnum API server. (integer value)
+# Minimum value: 1
+# Maximum value: 65535
 #port = 9511
 
 # The listen IP for the Magnum API server. (string value)
@@ -318,6 +328,20 @@
 # The length of time to let bay creation continue.  This interval is
 # in minutes.  The default is no timeout. (integer value)
 #bay_create_timeout = <None>
+
+
+[certificates]
+
+#
+# From magnum
+#
+
+# Certificate Manager plugin. Defaults to barbican. (string value)
+#cert_manager_type = barbican
+
+# Absolute path of the certificate storage directory. Defaults to
+# /var/lib/magnum/certificates/. (string value)
+#storage_path = /var/lib/magnum/certificates/
 
 
 [conductor]
@@ -701,6 +725,8 @@
 #k8s_protocol = http
 
 # Default port of the k8s master endpoint. (integer value)
+# Minimum value: 1
+# Maximum value: 65535
 #k8s_port = 8080
 
 
@@ -1037,3 +1063,33 @@
 # This option is deprecated for removal.
 # Its value may be silently ignored in the future.
 #policy_dirs = policy.d
+
+
+[x509]
+
+#
+# From magnum
+#
+
+# Certificate can get the CA flag in x509 extensions. (boolean value)
+#allow_ca = false
+
+# List of allowed x509 extensions. Available values:
+# "authorityKeyIdentifier", "subjectKeyIdentifier",
+# "authorityInfoAccess", "basicConstraints", "cRLDistributionPoints",
+# "certificatePolicies", "extendedKeyUsage", "OCSPNoCheck",
+# "inhibitAnyPolicy", "keyUsage", "nameConstraints", "subjectAltName",
+# "issuerAltName" (list value)
+#allowed_extensions = keyUsage,extendedKeyUsage,subjectAltName,basicConstraints,subjectKeyIdentifier
+
+# List of allowed x509 key usage. Available values: "Digital
+# Signature", "Non Repudiation", "Key Encipherment", "Data
+# Encipherment", "Key Agreement", "Certificate Sign", "CRL Sign",
+# "Encipher Only", "Decipher Only" (list value)
+#allowed_key_usage = Digital Signature,Key Encipherment,Non Repudiation
+
+# Number of days for which a certificate is valid. (integer value)
+#term_of_validity = 1825
+
+# Size of generated private key.  (integer value)
+#rsa_key_size = 2048

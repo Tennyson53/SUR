@@ -47,6 +47,9 @@ def get_test_baymodel(**kw):
         'coe': kw.get('coe', 'swarm'),
         'created_at': kw.get('created_at'),
         'updated_at': kw.get('updated_at'),
+        'http_proxy': kw.get('http_proxy', 'fake_http_proxy'),
+        'https_proxy': kw.get('https_proxy', 'fake_https_proxy'),
+        'no_proxy': kw.get('no_proxy', 'fake_no_proxy'),
     }
 
 
@@ -70,6 +73,8 @@ def get_test_bay(**kw):
         'uuid': kw.get('uuid', '5d12f6fd-a196-4bf0-ae4c-1f639a523a52'),
         'name': kw.get('name', 'bay1'),
         'discovery_url': kw.get('discovery_url', None),
+        'ca_cert_ref': kw.get('ca_cert_ref', None),
+        'magnum_cert_ref': kw.get('magnum_cert_ref', None),
         'project_id': kw.get('project_id', 'fake_project'),
         'user_id': kw.get('user_id', 'fake_user'),
         'baymodel_id': kw.get('baymodel_id',
@@ -81,6 +86,7 @@ def get_test_bay(**kw):
         'node_addresses': kw.get('node_addresses', ['172.17.2.4']),
         'node_count': kw.get('node_count', 3),
         'master_count': kw.get('master_count', 3),
+        'master_addresses': kw.get('master_addresses', ['172.17.2.18']),
         'created_at': kw.get('created_at'),
         'updated_at': kw.get('updated_at'),
     }

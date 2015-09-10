@@ -8,17 +8,20 @@ If you are getting started with magnum it is recommended you follow the
 :ref:`dev-quickstart` to get up and running with magnum. This guide covers
 a more in-depth process to setup magnum with devstack.
 
-Magnum depends on nova, glance, heat, and neutron to create and schedule
-virtual machines to simulate bare-metal. Full bare-metal support
+Magnum depends on nova, glance, heat, barbican, and neutron to create and
+schedule virtual machines to simulate bare-metal. Full bare-metal support
 is still under active development.
 
 This session has only been tested on Ubuntu 14.04 (Trusty) and Fedora 20/21.
 We recommend users to select one of them if it is possible.
 
-Clone devstack::
+Clone devstack and barbican::
 
     cd ~
     git clone https://git.openstack.org/openstack-dev/devstack
+    git clone https://git.openstack.org/openstack/barbican
+    cp barbican/contrib/devstack/lib/* devstack/lib/
+    cp barbican/contrib/devstack/extras.d/* devstack/extras.d/
 
 Configure devstack with the minimal settings required to enable heat
 and neutron::
@@ -55,6 +58,9 @@ and neutron::
     enable_service h-api
     enable_service h-api-cfn
     enable_service h-api-cw
+
+    # Enable barbican services
+    enable_service barbican
 
     FIXED_RANGE=10.0.0.0/24
 
@@ -168,9 +174,6 @@ Configure magnum::
 
     # enable debugging output
     sudo sed -i "s/#debug\s*=.*/debug=true/" /etc/magnum/magnum.conf
-
-    # enable more verbose output
-    sudo sed -i "s/#verbose\s*=.*/verbose=true/" /etc/magnum/magnum.conf
 
     # set RabbitMQ userid
     sudo sed -i "s/#rabbit_userid\s*=.*/rabbit_userid=stackrabbit/" \

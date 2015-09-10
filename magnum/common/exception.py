@@ -282,6 +282,11 @@ class InvalidName(Invalid):
     message = _("Expected a name but received %(uuid)s.")
 
 
+class InvalidDiscoveryURL(Invalid):
+    message = _("Received invalid discovery URL '%(discovery_url)s' for "
+                "discovery endpoint '%(discovery_endpoint)s'.")
+
+
 class InvalidUuidOrName(Invalid):
     message = _("Expected a name or uuid but received %(uuid)s.")
 
@@ -470,3 +475,11 @@ class X509KeyPairNotFound(ResourceNotFound):
 
 class X509KeyPairAlreadyExists(Conflict):
     message = _("A key pair with UUID %(uuid)s already exists.")
+
+
+class CertificateStorageException(MagnumException):
+    message = _("Could not store certificate: %(msg)s")
+
+
+class CertificateValidationError(Invalid):
+    message = _("Extension '%(extension)s' not allowed")

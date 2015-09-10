@@ -20,7 +20,7 @@ from magnum.common import context
 from magnum.common.rpc_service import CONF
 from magnum.db.sqlalchemy import api as dbapi
 from magnum import objects
-from magnum.objects.bay import Status as bay_status
+from magnum.objects.fields import BayStatus as bay_status
 from magnum.service import periodic
 from magnum.tests import base
 from magnum.tests.unit.db import utils
@@ -60,15 +60,17 @@ class PeriodicTestCase(base.TestCase):
         self.bay2 = objects.Bay(ctx, **bay2)
         self.bay3 = objects.Bay(ctx, **bay3)
 
-    @mock.patch.object(objects.Bay, 'list_all')
+    @mock.patch.object(objects.Bay, 'list')
     @mock.patch('magnum.common.clients.OpenStackClients')
     @mock.patch.object(dbapi.Connection, 'destroy_bay')
     @mock.patch.object(dbapi.Connection, 'update_bay')
     def test_sync_bay_status_changes(self, mock_db_update, mock_db_destroy,
                                      mock_oscc, mock_bay_list):
         mock_heat_client = mock.MagicMock()
-        stack1 = fake_stack(id='11', stack_status=bay_status.CREATE_COMPLETE)
-        stack3 = fake_stack(id='33', stack_status=bay_status.UPDATE_COMPLETE)
+        stack1 = fake_stack(id='11', stack_status=bay_status.CREATE_COMPLETE,
+                            stack_status_reason='fake_reason_11')
+        stack3 = fake_stack(id='33', stack_status=bay_status.UPDATE_COMPLETE,
+                            stack_status_reason='fake_reason_33')
         mock_heat_client.stacks.list.return_value = [stack1, stack3]
         mock_osc = mock_oscc.return_value
         mock_osc.heat.return_value = mock_heat_client
@@ -81,10 +83,12 @@ class PeriodicTestCase(base.TestCase):
         periodic.MagnumPeriodicTasks(CONF).sync_bay_status(None)
 
         self.assertEqual(self.bay1.status, bay_status.CREATE_COMPLETE)
+        self.assertEqual(self.bay1.status_reason, 'fake_reason_11')
         mock_db_destroy.assert_called_once_with(self.bay2.uuid)
         self.assertEqual(self.bay3.status, bay_status.UPDATE_COMPLETE)
+        self.assertEqual(self.bay3.status_reason, 'fake_reason_33')
 
-    @mock.patch.object(objects.Bay, 'list_all')
+    @mock.patch.object(objects.Bay, 'list')
     @mock.patch('magnum.common.clients.OpenStackClients')
     def test_sync_bay_status_not_changes(self, mock_oscc, mock_bay_list):
         mock_heat_client = mock.MagicMock()
@@ -104,7 +108,7 @@ class PeriodicTestCase(base.TestCase):
         self.assertEqual(self.bay2.status, bay_status.DELETE_IN_PROGRESS)
         self.assertEqual(self.bay3.status, bay_status.UPDATE_IN_PROGRESS)
 
-    @mock.patch.object(objects.Bay, 'list_all')
+    @mock.patch.object(objects.Bay, 'list')
     @mock.patch('magnum.common.clients.OpenStackClients')
     @mock.patch.object(dbapi.Connection, 'destroy_bay')
     @mock.patch.object(dbapi.Connection, 'update_bay')
@@ -124,5 +128,9 @@ class PeriodicTestCase(base.TestCase):
         periodic.MagnumPeriodicTasks(CONF).sync_bay_status(None)
 
         self.assertEqual(self.bay1.status, bay_status.CREATE_FAILED)
+        self.assertEqual(self.bay1.status_reason, 'Stack with id 11 not '
+                         'found in Heat.')
         mock_db_destroy.assert_called_once_with(self.bay2.uuid)
         self.assertEqual(self.bay3.status, bay_status.UPDATE_FAILED)
+        self.assertEqual(self.bay3.status_reason, 'Stack with id 33 not '
+                         'found in Heat.')

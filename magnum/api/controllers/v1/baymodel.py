@@ -101,6 +101,16 @@ class BayModel(base.APIBase):
     links = wsme.wsattr([link.Link], readonly=True)
     """A list containing a self link and associated baymodel links"""
 
+    http_proxy = wtypes.StringType(min_length=1, max_length=255)
+    """http_proxy for the bay """
+
+    https_proxy = wtypes.StringType(min_length=1, max_length=255)
+    """https_proxy for the bay """
+
+    no_proxy = wtypes.StringType(min_length=1, max_length=255)
+    """Its comma separated list of ip for which proxies should not
+       used in the bay"""
+
     def __init__(self, **kwargs):
         self.fields = []
         for field in objects.BayModel.fields:
@@ -146,6 +156,9 @@ class BayModel(base.APIBase):
             cluster_distro='fedora-atomic',
             ssh_authorized_key='ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB',
             coe='kubernetes',
+            http_proxy='http://proxy.com:123',
+            https_proxy='https://proxy.com:123',
+            no_proxy='192.168.0.1,192.168.0.2,192.168.0.3',
             created_at=datetime.datetime.utcnow(),
             updated_at=datetime.datetime.utcnow())
         return cls._convert_with_links(sample, 'http://localhost:9511', expand)
@@ -278,9 +291,8 @@ class BayModelsController(rest.RestController):
         """
         baymodel_dict = baymodel.as_dict()
         context = pecan.request.context
-        auth_token = context.auth_token_info['token']
-        baymodel_dict['project_id'] = auth_token['project']['id']
-        baymodel_dict['user_id'] = auth_token['user']['id']
+        baymodel_dict['project_id'] = context.project_id
+        baymodel_dict['user_id'] = context.user_id
         image_data = self._get_image_data(context, baymodel_dict['image_id'])
         if image_data.get('os_distro'):
             baymodel_dict['cluster_distro'] = image_data['os_distro']

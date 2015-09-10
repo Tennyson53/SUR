@@ -280,12 +280,12 @@ class TemplateDefinition(object):
         return None
 
     def get_params(self, context, baymodel, bay, **kwargs):
-        """Pulls template parameters from Baymodel and Bay.
+        """Pulls template parameters from Baymodel and/or Bay.
 
-        :param context: Context to pull template parameters from
+        :param context: Context to pull template parameters for
         :param baymodel: Baymodel to pull template parameters from
         :param bay: Bay to pull template parameters from
-        :param extra_params: Any extra params to provide to the template
+        :param extra_params: Any extra params to be provided to the template
 
         :return: dict of template parameters
         """
@@ -298,6 +298,21 @@ class TemplateDefinition(object):
             template_params.update(kwargs.get('extra_params'))
 
         return template_params
+
+    def get_heat_param(self, bay_attr=None, baymodel_attr=None):
+        """Returns stack param name  using bay and baymodel attributes
+        :param bay_attr bay attribute from which it maps to stack attribute
+        :param baymodel_attr baymodel attribute from which it maps
+         to stack attribute
+
+        :return stack parameter name or None
+        """
+        for mapping in self.param_mappings:
+            if (mapping.bay_attr == bay_attr and
+                    mapping.baymodel_attr == baymodel_attr):
+                return mapping.heat_param
+
+        return None
 
     def update_outputs(self, stack, bay):
         for output in self.output_mappings:
@@ -324,6 +339,12 @@ class BaseTemplateDefinition(TemplateDefinition):
                            baymodel_attr='dns_nameserver')
         self.add_parameter('fixed_network_cidr',
                            baymodel_attr='fixed_network')
+        self.add_parameter('http_proxy',
+                           baymodel_attr='http_proxy')
+        self.add_parameter('https_proxy',
+                           baymodel_attr='https_proxy')
+        self.add_parameter('no_proxy',
+                           baymodel_attr='no_proxy')
 
     @abc.abstractproperty
     def template_path(self):
@@ -370,14 +391,16 @@ class AtomicK8sTemplateDefinition(BaseTemplateDefinition):
         if hasattr(bay, 'discovery_url') and bay.discovery_url:
             discovery_url = bay.discovery_url
         else:
-            # TODO(hongbin): Eliminate hard coding of the size when multiple
-            # masters is supported.
             discovery_endpoint = (
                 cfg.CONF.bay.etcd_discovery_service_endpoint_format %
-                {'size': 1})
+                {'size': bay.master_count})
             discovery_url = requests.get(discovery_endpoint).text
-            bay.discovery_url = discovery_url
-
+            if not discovery_url:
+                raise exception.InvalidDiscoveryURL(
+                    discovery_url=discovery_url,
+                    discovery_endpoint=discovery_endpoint)
+            else:
+                bay.discovery_url = discovery_url
         return discovery_url
 
     def get_params(self, context, baymodel, bay, **kwargs):
@@ -449,7 +472,6 @@ class AtomicSwarmTemplateDefinition(BaseTemplateDefinition):
         self.add_parameter('external_network',
                            baymodel_attr='external_network_id',
                            required=True)
-
         self.add_output('swarm_manager',
                         bay_attr='api_address')
         self.add_output('swarm_nodes_external',

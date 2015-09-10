@@ -23,10 +23,12 @@ from oslo_service import threadgroup
 from magnum.common import clients
 from magnum.common import context
 from magnum.common import exception
+from magnum.i18n import _
 from magnum.i18n import _LI
 from magnum.i18n import _LW
 from magnum import objects
-from magnum.objects.bay import Status as bay_status
+from magnum.objects.fields import BayStatus as bay_status
+
 
 LOG = log.getLogger(__name__)
 
@@ -34,7 +36,7 @@ LOG = log.getLogger(__name__)
 def set_context(func):
     @functools.wraps(func)
     def handler(self, ctx):
-        ctx = context.make_admin_context()
+        ctx = context.make_admin_context(all_tenants=True)
         context.set_ctx(ctx)
         func(self, ctx)
         context.set_ctx(None)
@@ -46,17 +48,17 @@ class MagnumPeriodicTasks(periodic_task.PeriodicTasks):
 
     Any periodic task job need to be added into this class
     '''
-
     @periodic_task.periodic_task(run_immediately=True)
     @set_context
     def sync_bay_status(self, ctx):
         try:
             LOG.debug('Starting to sync up bay status')
             osc = clients.OpenStackClients(ctx)
-            filters = [bay_status.CREATE_IN_PROGRESS,
-                       bay_status.UPDATE_IN_PROGRESS,
-                       bay_status.DELETE_IN_PROGRESS]
-            bays = objects.Bay.list_all(ctx, filters=filters)
+            status = [bay_status.CREATE_IN_PROGRESS,
+                      bay_status.UPDATE_IN_PROGRESS,
+                      bay_status.DELETE_IN_PROGRESS]
+            filters = {'status': status}
+            bays = objects.Bay.list(ctx, filters=filters)
             if not bays:
                 return
             sid_to_bay_mapping = {bay.stack_id: bay for bay in bays}
@@ -73,6 +75,7 @@ class MagnumPeriodicTasks(periodic_task.PeriodicTasks):
                 if bay.status != stack.stack_status:
                     old_status = bay.status
                     bay.status = stack.stack_status
+                    bay.status_reason = stack.stack_status_reason
                     bay.save()
                     LOG.info(_LI("Sync up bay with id %(id)s from "
                                  "%(old_status)s to %(status)s."),
@@ -94,6 +97,8 @@ class MagnumPeriodicTasks(periodic_task.PeriodicTasks):
                              {'id': bay.id, 'sid': sid})
                 elif bay.status == bay_status.CREATE_IN_PROGRESS:
                     bay.status = bay_status.CREATE_FAILED
+                    bay.status_reason = _("Stack with id %s not found in "
+                                          "Heat.") % sid
                     bay.save()
                     LOG.info(_LI("Bay with id %(id)s has been set to "
                                  "%(status)s due to stack with id %(sid)s "
@@ -102,6 +107,8 @@ class MagnumPeriodicTasks(periodic_task.PeriodicTasks):
                               'sid': sid})
                 elif bay.status == bay_status.UPDATE_IN_PROGRESS:
                     bay.status = bay_status.UPDATE_FAILED
+                    bay.status_reason = _("Stack with id %s not found in "
+                                          "Heat.") % sid
                     bay.save()
                     LOG.info(_LI("Bay with id %(id)s has been set to "
                                  "%(status)s due to stack with id %(sid)s "

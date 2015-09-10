@@ -19,28 +19,27 @@ Install OS-specific prerequisites::
 
     # Ubuntu/Debian:
     sudo apt-get update
-    sudo apt-get install -y python-dev libssl-dev python-pip libxml2-dev \
+    sudo apt-get install -y python-dev libssl-dev libxml2-dev \
                             libmysqlclient-dev libxslt-dev libpq-dev git \
-                            git-review libffi-dev gettext build-essential
+                            libffi-dev gettext build-essential
 
     # Fedora/RHEL:
-    sudo yum install -y python-devel openssl-devel python-pip mysql-devel \
+    sudo yum install -y python-devel openssl-devel mysql-devel \
                         libxml2-devel libxslt-devel postgresql-devel git \
-                        git-review libffi-devel gettext gcc
+                        libffi-devel gettext gcc
 
     # openSUSE/SLE 12:
-    sudo zypper --non-interactive install git git-review libffi-devel \
-                        libmysqlclient-devel  libopenssl-devel libxml2-devel \
+    sudo zypper --non-interactive install git libffi-devel \
+                        libmysqlclient-devel libopenssl-devel libxml2-devel \
                         libxslt-devel postgresql-devel python-devel \
-                        python-pip gettext-runtime
+                        gettext-runtime
+Install pip::
+
+    curl -s https://bootstrap.pypa.io/get-pip.py | sudo python
 
 Install common prerequisites::
 
-    sudo pip install virtualenv flake8 tox testrepository
-
-Note: If using RHEL and yum reports "No package python-pip available" and "No
-package git-review available", use the EPEL software repository. Instructions
-can be found at the http://fedoraproject.org/wiki/EPEL/FAQ#howtouse page.
+    sudo pip install virtualenv flake8 tox testrepository git-review
 
 You may need to explicitly upgrade virtualenv if you've installed the one
 from your OS distribution and it is too old (tox will complain). You can
@@ -177,13 +176,10 @@ Create a baymodel. This is similar in nature to a flavor and describes
 to magnum how to construct the bay. The coe (Container Orchestration Engine)
 and keypair need to be specified for the baymodel::
 
-    NIC_ID=$(neutron net-show public | awk '/ id /{print $4}')
-    echo ${NIC_ID}
-
     magnum baymodel-create --name k8sbaymodel \
                            --image-id fedora-21-atomic-3 \
                            --keypair-id testkey \
-                           --external-network-id ${NIC_ID} \
+                           --external-network-id public \
                            --dns-nameserver 8.8.8.8 \
                            --flavor-id m1.small \
                            --docker-volume-size 5 \
@@ -275,7 +271,7 @@ a pod for the redis-master::
 Now create a service to provide a discoverable endpoint for the redis
 sentinels in the cluster::
 
-    magnum service-create --manifest ./redis-sentinel-service.yaml --bay k8sbay
+    magnum coe-service-create --manifest ./redis-sentinel-service.yaml --bay k8sbay
 
 To make it a replicated redis cluster create replication controllers for the
 redis slaves and sentinels::
@@ -288,7 +284,7 @@ redis slaves and sentinels::
 
 Full lifecycle and introspection operations for each object are supported.
 For example, magnum bay-create, magnum baymodel-delete, magnum rc-show,
-magnum service-list.
+magnum coe-service-list.
 
 Now run bay-show command to get the IP of the bay host on which the
 redis-master is running::
@@ -345,11 +341,10 @@ Create a baymodel. It is very similar to the Kubernetes baymodel, except for
 the absence of some Kubernetes-specific arguments and the use of 'swarm'
 as the coe::
 
-    NIC_ID=$(neutron net-show public | awk '/ id /{print $4}')
     magnum baymodel-create --name swarmbaymodel \
                            --image-id fedora-21-atomic-3 \
                            --keypair-id testkey \
-                           --external-network-id ${NIC_ID} \
+                           --external-network-id public \
                            --dns-nameserver 8.8.8.8 \
                            --flavor-id m1.small \
                            --coe swarm
@@ -428,10 +423,9 @@ pre-installed. To build and upload such image, please refer to
 Then, create a baymodel by using 'mesos' as the coe, with the rest of arguments
 similar to the Kubernetes baymodel::
 
-    NIC_ID=$(neutron net-show public | awk '/ id /{print $4}')
     magnum baymodel-create --name mesosbaymodel --image-id ubuntu-mesos \
                            --keypair-id testkey \
-                           --external-network-id $NIC_ID \
+                           --external-network-id public \
                            --dns-nameserver 8.8.8.8 --flavor-id m1.small \
                            --coe mesos
 

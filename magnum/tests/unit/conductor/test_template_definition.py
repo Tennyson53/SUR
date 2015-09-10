@@ -136,6 +136,35 @@ class TemplateDefinitionTestCase(base.TestCase):
         value = output.get_output_value(mock_stack)
         self.assertIsNone(value)
 
+    def test_update_outputs(self):
+        definition = tdef.TemplateDefinition.get_template_definition(
+            'vm',
+            'fedora-atomic',
+            'kubernetes')
+
+        expected_api_address = 'api_address'
+        expected_node_addresses = ['ex_minion', 'address']
+
+        outputs = [
+            {"output_value": expected_node_addresses,
+             "description": "No description given",
+             "output_key": "kube_minions_external"},
+            {"output_value": expected_api_address,
+             "description": "No description given",
+             "output_key": "api_address"},
+            {"output_value": ['any', 'output'],
+             "description": "No description given",
+             "output_key": "kube_minions"}
+        ]
+        mock_stack = mock.MagicMock()
+        mock_stack.outputs = outputs
+        mock_bay = mock.MagicMock()
+
+        definition.update_outputs(mock_stack, mock_bay)
+
+        self.assertEqual(mock_bay.api_address, expected_api_address)
+        self.assertEqual(mock_bay.node_addresses, expected_node_addresses)
+
 
 class AtomicK8sTemplateDefinitionTestCase(base.TestCase):
 
@@ -165,6 +194,45 @@ class AtomicK8sTemplateDefinitionTestCase(base.TestCase):
             'discovery_url': 'fake_discovery_url'}}
         mock_get_params.assert_called_once_with(mock_context, mock_baymodel,
                                                 mock_bay, **expected_kwargs)
+
+    @mock.patch('requests.get')
+    def test_k8s_get_discovery_url(self, mock_get):
+        cfg.CONF.set_override('etcd_discovery_service_endpoint_format',
+                              'http://etcd/test?size=%(size)d',
+                              group='bay')
+        expected_discovery_url = 'http://etcd/token'
+        mock_resp = mock.MagicMock()
+        mock_resp.text = expected_discovery_url
+        mock_get.return_value = mock_resp
+        mock_bay = mock.MagicMock()
+        mock_bay.master_count = 10
+        mock_bay.discovery_url = None
+
+        k8s_def = tdef.AtomicK8sTemplateDefinition()
+        discovery_url = k8s_def.get_discovery_url(mock_bay)
+
+        mock_get.assert_called_once_with('http://etcd/test?size=10')
+        self.assertEqual(mock_bay.discovery_url, expected_discovery_url)
+        self.assertEqual(discovery_url, expected_discovery_url)
+
+    def test_k8s_get_heat_param(self):
+        k8s_def = tdef.AtomicK8sTemplateDefinition()
+
+        heat_param = k8s_def.get_heat_param(bay_attr='node_count')
+        self.assertEqual(heat_param, 'number_of_minions')
+
+    @mock.patch('requests.get')
+    def test_k8s_get_discovery_url_not_found(self, mock_get):
+        mock_resp = mock.MagicMock()
+        mock_resp.text = ''
+        mock_get.return_value = mock_resp
+
+        fake_bay = mock.MagicMock()
+        fake_bay.discovery_url = None
+
+        self.assertRaises(exception.InvalidDiscoveryURL,
+                          tdef.AtomicK8sTemplateDefinition().get_discovery_url,
+                          fake_bay)
 
 
 class AtomicSwarmTemplateDefinitionTestCase(base.TestCase):
@@ -226,3 +294,18 @@ class AtomicSwarmTemplateDefinitionTestCase(base.TestCase):
         actual_url = swarm_def.get_discovery_url(mock_bay)
 
         self.assertEqual(mock_bay.discovery_url, actual_url)
+
+    def test_swarm_get_heat_param(self):
+        k8s_def = tdef.AtomicSwarmTemplateDefinition()
+
+        heat_param = k8s_def.get_heat_param(bay_attr='node_count')
+        self.assertEqual(heat_param, 'number_of_nodes')
+
+
+class AtomicMesosTemplateDefinitionTestCase(base.TestCase):
+
+    def test_mesos_get_heat_param(self):
+        k8s_def = tdef.UbuntuMesosTemplateDefinition()
+
+        heat_param = k8s_def.get_heat_param(bay_attr='node_count')
+        self.assertEqual(heat_param, 'number_of_slaves')

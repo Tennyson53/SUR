@@ -39,7 +39,9 @@ class BayPatchType(types.JsonPatchType):
 
     @staticmethod
     def internal_attrs():
-        internal_attrs = ['/api_address', '/node_addresses']
+        internal_attrs = ['/api_address', '/node_addresses',
+                          '/master_addresses', '/stack_id',
+                          '/ca_cert_ref', '/magnum_cert_ref']
         return types.JsonPatchType.internal_attrs() + internal_attrs
 
 
@@ -78,13 +80,13 @@ class Bay(base.APIBase):
                                   _set_baymodel_id, mandatory=True)
     """The bay model UUID or id"""
 
-    node_count = wtypes.IntegerType(minimum=1)
-    """The node count for this bay"""
+    node_count = wsme.wsattr(wtypes.IntegerType(minimum=1), default=1)
+    """The node count for this bay. Set to 1 for no node_count"""
 
     master_count = wsme.wsattr(wtypes.IntegerType(minimum=1), default=1)
-    """The number of master nodes for this bay"""
+    """The number of master nodes for this bay. Set to 1 for no master_count"""
 
-    bay_create_timeout = wtypes.IntegerType(minimum=0)
+    bay_create_timeout = wsme.wsattr(wtypes.IntegerType(minimum=0), default=0)
     """Timeout for creating the bay in minutes. Set to 0 for no timeout."""
 
     links = wsme.wsattr([link.Link], readonly=True)
@@ -267,16 +269,13 @@ class BaysController(rest.RestController):
         """
         bay_dict = bay.as_dict()
         context = pecan.request.context
-        auth_token = context.auth_token_info['token']
-        bay_dict['project_id'] = auth_token['project']['id']
-        bay_dict['user_id'] = auth_token['user']['id']
+        bay_dict['project_id'] = context.project_id
+        bay_dict['user_id'] = context.user_id
         # NOTE(suro-patz): Apply default node_count is 1, None -> 1
         if bay_dict.get('node_count', None) is None:
             bay_dict['node_count'] = 1
 
         new_bay = objects.Bay(context, **bay_dict)
-        if isinstance(bay.bay_create_timeout, wsme.types.UnsetType):
-            bay.bay_create_timeout = 0
         res_bay = pecan.request.rpcapi.bay_create(new_bay,
                                                   bay.bay_create_timeout)
 

@@ -18,7 +18,7 @@ from oslo_service import loopingcall
 from magnum.common import exception
 from magnum.conductor.handlers import bay_conductor
 from magnum import objects
-from magnum.objects.bay import Status as bay_status
+from magnum.objects.fields import BayStatus as bay_status
 from magnum.tests import base
 from magnum.tests.unit.db import base as db_base
 from magnum.tests.unit.db import utils
@@ -44,6 +44,9 @@ class TestBayConductorWithK8s(base.TestCase):
             'ssh_authorized_key': 'ssh_authorized_key',
             'coe': 'kubernetes',
             'token': None,
+            'http_proxy': 'http_proxy',
+            'https_proxy': 'https_proxy',
+            'no_proxy': 'no_proxy',
         }
         self.bay_dict = {
             'baymodel_id': 'xx-xx-xx-xx',
@@ -54,6 +57,9 @@ class TestBayConductorWithK8s(base.TestCase):
             'node_count': 1,
             'master_count': 1,
             'discovery_url': 'https://discovery.etcd.io/test',
+            'master_addresses': ['172.17.2.18'],
+            'ca_cert_ref': 'http://barbican/v1/containers/xx-xx-xx-xx',
+            'magnum_cert_ref': 'http://barbican/v1/containers/xx-xx-xx-xx',
         }
 
     @patch('magnum.objects.BayModel.get_by_uuid')
@@ -90,6 +96,9 @@ class TestBayConductorWithK8s(base.TestCase):
             'node_count': 'number_of_minions',
             'master_count': 'number_of_masters',
             'discovery_url': 'discovery_url',
+            'http_proxy': 'http_proxy',
+            'https_proxy': 'https_proxy',
+            'no_proxy': 'no_proxy',
         }
         expected = {
             'ssh_key_name': 'keypair_id',
@@ -103,6 +112,9 @@ class TestBayConductorWithK8s(base.TestCase):
             'fixed_network_cidr': '10.20.30.0/24',
             'docker_volume_size': 20,
             'discovery_url': 'https://discovery.etcd.io/test',
+            'http_proxy': 'http_proxy',
+            'https_proxy': 'https_proxy',
+            'no_proxy': 'no_proxy',
         }
         if missing_attr is not None:
             expected.pop(mapping[missing_attr], None)
@@ -144,6 +156,9 @@ class TestBayConductorWithK8s(base.TestCase):
             'ssh_authorized_key': 'ssh_authorized_key',
             'token': 'h3',
             'discovery_url': 'https://discovery.etcd.io/test',
+            'http_proxy': 'http_proxy',
+            'https_proxy': 'https_proxy',
+            'no_proxy': 'no_proxy',
         }
         self.assertEqual(expected, definition)
 
@@ -182,6 +197,9 @@ class TestBayConductorWithK8s(base.TestCase):
             'ssh_authorized_key': 'ssh_authorized_key',
             'token': 'ba3d1866282848ddbedc76112110c208',
             'discovery_url': 'https://discovery.etcd.io/test',
+            'http_proxy': 'http_proxy',
+            'https_proxy': 'https_proxy',
+            'no_proxy': 'no_proxy',
         }
         self.assertEqual(expected, definition)
 
@@ -260,6 +278,9 @@ class TestBayConductorWithK8s(base.TestCase):
             'fixed_network_cidr': '10.20.30.0/24',
             'docker_volume_size': 20,
             'discovery_url': 'https://discovery.etcd.io/test',
+            'http_proxy': 'http_proxy',
+            'https_proxy': 'https_proxy',
+            'no_proxy': 'no_proxy'
         }
         self.assertIn('token', definition)
         del definition['token']
@@ -323,38 +344,12 @@ class TestBayConductorWithK8s(base.TestCase):
             'fixed_network_cidr': '10.20.30.0/24',
             'docker_volume_size': 20,
             'discovery_url': 'https://address/token',
+            'http_proxy': 'http_proxy',
+            'https_proxy': 'https_proxy',
+            'no_proxy': 'no_proxy'
         }
         self.assertEqual(expected, definition)
         reqget.assert_called_once_with('http://etcd/test?size=1')
-
-    @patch('magnum.objects.BayModel.get_by_uuid')
-    def test_update_stack_outputs(self, mock_objects_baymodel_get_by_uuid):
-        baymodel_dict = self.baymodel_dict
-        baymodel_dict['cluster_distro'] = 'coreos'
-        baymodel = objects.BayModel(self.context, **baymodel_dict)
-        mock_objects_baymodel_get_by_uuid.return_value = baymodel
-        expected_api_address = 'api_address'
-        expected_node_addresses = ['ex_minion', 'address']
-
-        outputs = [
-            {"output_value": expected_node_addresses,
-             "description": "No description given",
-             "output_key": "kube_minions_external"},
-            {"output_value": expected_api_address,
-             "description": "No description given",
-             "output_key": "api_address"},
-            {"output_value": ['any', 'output'],
-             "description": "No description given",
-             "output_key": "kube_minions"}
-        ]
-        mock_stack = mock.MagicMock()
-        mock_stack.outputs = outputs
-        mock_bay = mock.MagicMock()
-
-        bay_conductor._update_stack_outputs(self.context, mock_stack, mock_bay)
-
-        self.assertEqual(mock_bay.api_address, expected_api_address)
-        self.assertEqual(mock_bay.node_addresses, expected_node_addresses)
 
     @patch('magnum.common.short_id.generate_id')
     @patch('heatclient.common.template_utils.get_template_contents')
@@ -512,15 +507,19 @@ class TestBayConductorWithK8s(base.TestCase):
         mock_heat_client.stacks.update.assert_called_once_with(mock_stack_id,
                                                                **expected_args)
 
+    @patch('magnum.conductor.utils.retrieve_baymodel')
     @patch('oslo_config.cfg')
     @patch('magnum.common.clients.OpenStackClients')
-    def setup_poll_test(self, mock_openstack_client, cfg):
+    def setup_poll_test(self, mock_openstack_client, cfg,
+                        mock_retrieve_baymodel):
         cfg.CONF.bay_heat.max_attempts = 10
         bay = mock.MagicMock()
         mock_heat_stack = mock.MagicMock()
         mock_heat_client = mock.MagicMock()
         mock_heat_client.stacks.get.return_value = mock_heat_stack
         mock_openstack_client.heat.return_value = mock_heat_client
+        baymodel = objects.BayModel(self.context, **self.baymodel_dict)
+        mock_retrieve_baymodel.return_value = baymodel
         poller = bay_conductor.HeatPoller(mock_openstack_client, bay)
         return (mock_heat_stack, bay, poller)
 
@@ -557,11 +556,29 @@ class TestBayConductorWithK8s(base.TestCase):
         self.assertRaises(loopingcall.LoopingCallDone, poller.poll_and_check)
         self.assertEqual(poller.attempts, 2)
 
+    def test_poll_done_by_update(self):
+        mock_heat_stack, bay, poller = self.setup_poll_test()
+
+        mock_heat_stack.stack_status = bay_status.UPDATE_COMPLETE
+        mock_heat_stack.parameters = {'number_of_minions': 2}
+        self.assertRaises(loopingcall.LoopingCallDone, poller.poll_and_check)
+
+        self.assertEqual(bay.save.call_count, 1)
+        self.assertEqual(bay.status, bay_status.UPDATE_COMPLETE)
+        self.assertEqual(bay.node_count, 2)
+        self.assertEqual(poller.attempts, 1)
+
     def test_poll_done_by_update_failed(self):
         mock_heat_stack, bay, poller = self.setup_poll_test()
 
         mock_heat_stack.stack_status = bay_status.UPDATE_FAILED
+        mock_heat_stack.parameters = {'number_of_minions': 2}
         self.assertRaises(loopingcall.LoopingCallDone, poller.poll_and_check)
+
+        self.assertEqual(bay.save.call_count, 1)
+        self.assertEqual(bay.status, bay_status.UPDATE_FAILED)
+        self.assertEqual(bay.node_count, 2)
+        self.assertEqual(poller.attempts, 1)
 
     def test_poll_destroy(self):
         mock_heat_stack, bay, poller = self.setup_poll_test()
@@ -648,6 +665,24 @@ class TestBayConductorWithK8s(base.TestCase):
         mock_heat_stack.timeout_mins = 60
         self.assertRaises(loopingcall.LoopingCallDone, poller.poll_and_check)
 
+    def test_poll_node_count(self):
+        mock_heat_stack, bay, poller = self.setup_poll_test()
+
+        mock_heat_stack.parameters = {'number_of_minions': 1}
+        mock_heat_stack.stack_status = bay_status.CREATE_IN_PROGRESS
+        poller.poll_and_check()
+
+        self.assertEqual(bay.node_count, 1)
+
+    def test_poll_node_count_by_update(self):
+        mock_heat_stack, bay, poller = self.setup_poll_test()
+
+        mock_heat_stack.parameters = {'number_of_minions': 2}
+        mock_heat_stack.stack_status = bay_status.UPDATE_COMPLETE
+        self.assertRaises(loopingcall.LoopingCallDone, poller.poll_and_check)
+
+        self.assertEqual(bay.node_count, 2)
+
 
 class TestHandler(db_base.DbTestCase):
 
@@ -669,6 +704,10 @@ class TestHandler(db_base.DbTestCase):
             self, mock_openstack_client_class,
             mock_update_stack, mock_poll_and_check,
             mock_scale_manager):
+        def side_effect(*args, **kwargs):
+            self.bay.node_count = 2
+            self.bay.save()
+        mock_poll_and_check.side_effect = side_effect
         mock_heat_stack = mock.MagicMock()
         mock_heat_stack.stack_status = bay_status.CREATE_COMPLETE
         mock_heat_client = mock.MagicMock()
@@ -691,6 +730,10 @@ class TestHandler(db_base.DbTestCase):
     def test_update_node_count_failure(
             self, mock_openstack_client_class,
             mock_update_stack, mock_poll_and_check):
+        def side_effect(*args, **kwargs):
+            self.bay.node_count = 2
+            self.bay.save()
+        mock_poll_and_check.side_effect = side_effect
         mock_heat_stack = mock.MagicMock()
         mock_heat_stack.stack_status = bay_status.CREATE_FAILED
         mock_heat_client = mock.MagicMock()
@@ -705,14 +748,37 @@ class TestHandler(db_base.DbTestCase):
         bay = objects.Bay.get(self.context, self.bay.uuid)
         self.assertEqual(bay.node_count, 1)
 
+    @patch('magnum.common.clients.OpenStackClients')
+    def test_update_bay_with_invalid_params(
+            self, mock_openstack_client_class):
+        mock_heat_stack = mock.MagicMock()
+        mock_heat_stack.stack_status = bay_status.CREATE_COMPLETE
+        mock_heat_client = mock.MagicMock()
+        mock_heat_client.stacks.get.return_value = mock_heat_stack
+        mock_openstack_client = mock_openstack_client_class.return_value
+        mock_openstack_client.heat.return_value = mock_heat_client
+
+        self.bay.node_count = 2
+        self.bay.api_address = '7.7.7.7'
+        self.assertRaises(exception.InvalidParameterValue,
+                          self.handler.bay_update,
+                          self.context,
+                          self.bay)
+        bay = objects.Bay.get(self.context, self.bay.uuid)
+        self.assertEqual(bay.node_count, 1)
+
+    @patch('magnum.conductor.handlers.common.cert_manager.'
+           'generate_certificates_to_bay')
     @patch('magnum.conductor.handlers.bay_conductor._create_stack')
     @patch('magnum.common.clients.OpenStackClients')
-    def test_create(self, mock_openstack_client_class, mock_create_stack):
+    def test_create(self, mock_openstack_client_class, mock_create_stack,
+                    mock_generate_certificates):
         mock_create_stack.side_effect = exc.HTTPBadRequest
         timeout = 15
         self.assertRaises(exception.InvalidParameterValue,
                           self.handler.bay_create, self.context,
                           self.bay, timeout)
+        mock_generate_certificates.assert_called_once_with(self.bay)
 
     @patch('magnum.common.clients.OpenStackClients')
     def test_bay_delete(self, mock_openstack_client_class):
@@ -736,7 +802,10 @@ class TestBayConductorWithSwarm(base.TestCase):
             'external_network_id': 'external_network_id',
             'fixed_network': '10.2.0.0/22',
             'cluster_distro': 'fedora-atomic',
-            'coe': 'swarm'
+            'coe': 'swarm',
+            'http_proxy': 'http_proxy',
+            'https_proxy': 'https_proxy',
+            'no_proxy': 'no_proxy'
         }
         self.bay_dict = {
             'id': 1,
@@ -770,7 +839,10 @@ class TestBayConductorWithSwarm(base.TestCase):
             'server_flavor': 'flavor_id',
             'number_of_nodes': '1',
             'fixed_network_cidr': '10.2.0.0/22',
-            'discovery_url': 'token://39987da72f8386e0d0225ae8929e7cb4'
+            'discovery_url': 'token://39987da72f8386e0d0225ae8929e7cb4',
+            'http_proxy': 'http_proxy',
+            'https_proxy': 'https_proxy',
+            'no_proxy': 'no_proxy'
         }
         self.assertEqual(expected, definition)
 
@@ -783,7 +855,8 @@ class TestBayConductorWithSwarm(base.TestCase):
                               'test_discovery', group='bay')
 
         not_required = ['image_id', 'flavor_id', 'dns_nameserver',
-                        'fixed_network']
+                        'fixed_network', 'http_proxy', 'https_proxy',
+                        'no_proxy']
         for key in not_required:
             self.baymodel_dict[key] = None
         self.bay_dict['discovery_url'] = None
@@ -804,6 +877,40 @@ class TestBayConductorWithSwarm(base.TestCase):
         }
         self.assertEqual(expected, definition)
 
+    @patch('magnum.conductor.utils.retrieve_baymodel')
+    @patch('oslo_config.cfg')
+    @patch('magnum.common.clients.OpenStackClients')
+    def setup_poll_test(self, mock_openstack_client, cfg,
+                        mock_retrieve_baymodel):
+        cfg.CONF.bay_heat.max_attempts = 10
+        bay = mock.MagicMock()
+        mock_heat_stack = mock.MagicMock()
+        mock_heat_client = mock.MagicMock()
+        mock_heat_client.stacks.get.return_value = mock_heat_stack
+        mock_openstack_client.heat.return_value = mock_heat_client
+        baymodel = objects.BayModel(self.context, **self.baymodel_dict)
+        mock_retrieve_baymodel.return_value = baymodel
+        poller = bay_conductor.HeatPoller(mock_openstack_client, bay)
+        return (mock_heat_stack, bay, poller)
+
+    def test_poll_node_count(self):
+        mock_heat_stack, bay, poller = self.setup_poll_test()
+
+        mock_heat_stack.parameters = {'number_of_nodes': 1}
+        mock_heat_stack.stack_status = bay_status.CREATE_IN_PROGRESS
+        poller.poll_and_check()
+
+        self.assertEqual(bay.node_count, 1)
+
+    def test_poll_node_count_by_update(self):
+        mock_heat_stack, bay, poller = self.setup_poll_test()
+
+        mock_heat_stack.parameters = {'number_of_nodes': 2}
+        mock_heat_stack.stack_status = bay_status.UPDATE_COMPLETE
+        self.assertRaises(loopingcall.LoopingCallDone, poller.poll_and_check)
+
+        self.assertEqual(bay.node_count, 2)
+
 
 class TestBayConductorWithMesos(base.TestCase):
     def setUp(self):
@@ -817,7 +924,10 @@ class TestBayConductorWithMesos(base.TestCase):
             'external_network_id': 'external_network_id',
             'fixed_network': '10.2.0.0/22',
             'cluster_distro': 'ubuntu',
-            'coe': 'mesos'
+            'coe': 'mesos',
+            'http_proxy': 'http_proxy',
+            'https_proxy': 'https_proxy',
+            'no_proxy': 'no_proxy'
         }
         self.bay_dict = {
             'id': 1,
@@ -850,7 +960,10 @@ class TestBayConductorWithMesos(base.TestCase):
             'master_flavor': 'master_flavor_id',
             'slave_flavor': 'flavor_id',
             'number_of_slaves': '1',
-            'fixed_network_cidr': '10.2.0.0/22'
+            'fixed_network_cidr': '10.2.0.0/22',
+            'http_proxy': 'http_proxy',
+            'https_proxy': 'https_proxy',
+            'no_proxy': 'no_proxy'
         }
         self.assertEqual(expected, definition)
 
@@ -859,7 +972,8 @@ class TestBayConductorWithMesos(base.TestCase):
             self,
             mock_objects_baymodel_get_by_uuid):
         not_required = ['image_id', 'master_flavor_id', 'flavor_id',
-                        'dns_nameserver', 'fixed_network']
+                        'dns_nameserver', 'fixed_network', 'http_proxy',
+                        'https_proxy', 'no_proxy']
         for key in not_required:
             self.baymodel_dict[key] = None
 
@@ -877,3 +991,37 @@ class TestBayConductorWithMesos(base.TestCase):
             'number_of_slaves': '1',
         }
         self.assertEqual(expected, definition)
+
+    @patch('magnum.conductor.utils.retrieve_baymodel')
+    @patch('oslo_config.cfg')
+    @patch('magnum.common.clients.OpenStackClients')
+    def setup_poll_test(self, mock_openstack_client, cfg,
+                        mock_retrieve_baymodel):
+        cfg.CONF.bay_heat.max_attempts = 10
+        bay = mock.MagicMock()
+        mock_heat_stack = mock.MagicMock()
+        mock_heat_client = mock.MagicMock()
+        mock_heat_client.stacks.get.return_value = mock_heat_stack
+        mock_openstack_client.heat.return_value = mock_heat_client
+        baymodel = objects.BayModel(self.context, **self.baymodel_dict)
+        mock_retrieve_baymodel.return_value = baymodel
+        poller = bay_conductor.HeatPoller(mock_openstack_client, bay)
+        return (mock_heat_stack, bay, poller)
+
+    def test_poll_node_count(self):
+        mock_heat_stack, bay, poller = self.setup_poll_test()
+
+        mock_heat_stack.parameters = {'number_of_slaves': 1}
+        mock_heat_stack.stack_status = bay_status.CREATE_IN_PROGRESS
+        poller.poll_and_check()
+
+        self.assertEqual(bay.node_count, 1)
+
+    def test_poll_node_count_by_update(self):
+        mock_heat_stack, bay, poller = self.setup_poll_test()
+
+        mock_heat_stack.parameters = {'number_of_slaves': 2}
+        mock_heat_stack.stack_status = bay_status.UPDATE_COMPLETE
+        self.assertRaises(loopingcall.LoopingCallDone, poller.poll_and_check)
+
+        self.assertEqual(bay.node_count, 2)
